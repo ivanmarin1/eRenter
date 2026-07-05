@@ -2,8 +2,13 @@ package com.vacation.feature.calendar.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vacation.feature.calendar.domain.model.Apartment
+import com.vacation.feature.calendar.domain.model.ApartmentId
+import com.vacation.feature.calendar.domain.model.Booking
+import com.vacation.feature.calendar.domain.model.BookingId
 import com.vacation.feature.calendar.domain.model.MonthSchedule
 import com.vacation.feature.calendar.domain.model.YearMonth
+import com.vacation.feature.calendar.domain.repository.BookingRepository
 import com.vacation.feature.calendar.domain.usecase.GetMonthScheduleUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,19 +18,21 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 
 /**
- * Owns calendar UI state. Depends only on the domain use case — nothing about storage
- * or rendering leaks in. Because it is a multiplatform ViewModel it survives configuration
- * changes on Android and works unchanged on iOS/Desktop.
+ * Owns calendar UI state. Reads the month schedule through the domain use case and writes
+ * single-reservation changes back through the repository. Because it is a multiplatform
+ * ViewModel it survives configuration changes on Android and works unchanged on iOS/Desktop.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModel(
     private val getMonthSchedule: GetMonthScheduleUseCase,
+    private val repository: BookingRepository,
     private val clock: Clock = Clock.System,
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel() {
@@ -34,6 +41,11 @@ class CalendarViewModel(
 
     private val visibleMonth = MutableStateFlow(YearMonth.of(today))
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
+
+    /** Apartments to choose from when adding or editing a reservation. */
+    val apartments: StateFlow<List<Apartment>> =
+        repository.observeApartments()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val uiState: StateFlow<CalendarUiState> =
         combine(
@@ -68,6 +80,40 @@ class CalendarViewModel(
                 selectedDate.update { current -> if (current == event.date) null else event.date }
             }
             CalendarEvent.ClearSelection -> selectedDate.value = null
+        }
+    }
+
+    /** Create a new reservation. Silently ignores invalid input (blank guest / bad date range). */
+    fun addBooking(apartmentId: ApartmentId, guestName: String, checkIn: LocalDate, checkOut: LocalDate) {
+        saveBooking(BookingId(newId()), apartmentId, guestName, checkIn, checkOut)
+    }
+
+    /** Overwrite an existing reservation (matched by [bookingId]). */
+    fun updateBooking(
+        bookingId: BookingId,
+        apartmentId: ApartmentId,
+        guestName: String,
+        checkIn: LocalDate,
+        checkOut: LocalDate,
+    ) {
+        saveBooking(bookingId, apartmentId, guestName, checkIn, checkOut)
+    }
+
+    fun deleteBooking(bookingId: BookingId) {
+        viewModelScope.launch { repository.deleteBooking(bookingId) }
+    }
+
+    private fun saveBooking(
+        bookingId: BookingId,
+        apartmentId: ApartmentId,
+        guestName: String,
+        checkIn: LocalDate,
+        checkOut: LocalDate,
+    ) {
+        val name = guestName.trim()
+        if (name.isEmpty() || checkOut < checkIn) return
+        viewModelScope.launch {
+            repository.upsertBooking(Booking(bookingId, apartmentId, name, checkIn, checkOut))
         }
     }
 

@@ -3,12 +3,14 @@ package com.vacation.feature.calendar.domain.model
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 
-/** A booking event condensed to what the calendar needs to show. */
+/** A booking event condensed to what the calendar needs to show and edit. */
 data class BookingSummary(
     val bookingId: BookingId,
     val apartmentId: ApartmentId,
     val apartmentName: String,
     val guestName: String,
+    val checkIn: LocalDate,
+    val checkOut: LocalDate,
 )
 
 /** Everything happening on a single day, already resolved (apartment names attached). */

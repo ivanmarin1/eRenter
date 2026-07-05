@@ -45,6 +45,8 @@ class MonthScheduleBuilder(
                         apartmentId = b.apartmentId,
                         apartmentName = names[b.apartmentId] ?: "Unknown apartment",
                         guestName = b.guestName,
+                        checkIn = b.checkIn,
+                        checkOut = b.checkOut,
                     )
                 }
                 .sortedBy { it.apartmentName }

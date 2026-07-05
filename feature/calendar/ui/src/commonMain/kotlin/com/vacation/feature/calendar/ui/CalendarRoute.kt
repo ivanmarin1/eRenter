@@ -18,5 +18,14 @@ fun CalendarRoute(
     viewModel: CalendarViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    CalendarScreen(state = state, onEvent = viewModel::onEvent, modifier = modifier)
+    val apartments by viewModel.apartments.collectAsStateWithLifecycle()
+    CalendarScreen(
+        state = state,
+        apartments = apartments,
+        onEvent = viewModel::onEvent,
+        onAddBooking = viewModel::addBooking,
+        onUpdateBooking = viewModel::updateBooking,
+        onDeleteBooking = viewModel::deleteBooking,
+        modifier = modifier,
+    )
 }
