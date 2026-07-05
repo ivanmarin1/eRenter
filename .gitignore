@@ -3,12 +3,17 @@
 build/
 
 # Local configuration file (sdk path, etc)
+*/build/
+**/build/
 local.properties
 
 # Log/OS Files
 *.log
 
 # Android Studio generated files and folders
+.idea/
+.kotlin/
+.DS_Store
 captures/
 .externalNativeBuild/
 .cxx/
@@ -32,3 +37,10 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# iOS
+iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
+iosApp/iosApp.xcodeproj/xcuserdata/
+Pods/
+*.xcuserstate
+.claude/

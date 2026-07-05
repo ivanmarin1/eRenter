@@ -1,0 +1,20 @@
+-- A rentable unit. Rows are created/renamed/deleted by the host at runtime;
+-- nothing is seeded at build time so the app is reusable across hosts.
+CREATE TABLE apartmentEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sortOrder INTEGER NOT NULL DEFAULT 0
+);
+
+selectAll:
+SELECT * FROM apartmentEntity ORDER BY sortOrder, name;
+
+upsert:
+INSERT OR REPLACE INTO apartmentEntity(id, name, sortOrder)
+VALUES (?, ?, ?);
+
+deleteById:
+DELETE FROM apartmentEntity WHERE id = ?;
+
+nextSortOrder:
+SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM apartmentEntity;

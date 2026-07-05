@@ -1,0 +1,24 @@
+-- One reservation. Dates are stored as ISO text (yyyy-MM-dd) and mapped to LocalDate
+-- in the data source, so no column adapters are needed.
+CREATE TABLE bookingEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    apartmentId TEXT NOT NULL,
+    guestName TEXT NOT NULL,
+    checkIn TEXT NOT NULL,
+    checkOut TEXT NOT NULL
+);
+
+CREATE INDEX bookingEntity_apartment ON bookingEntity(apartmentId);
+
+selectAll:
+SELECT * FROM bookingEntity;
+
+upsert:
+INSERT OR REPLACE INTO bookingEntity(id, apartmentId, guestName, checkIn, checkOut)
+VALUES (?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM bookingEntity WHERE id = ?;
+
+deleteByApartment:
+DELETE FROM bookingEntity WHERE apartmentId = ?;
