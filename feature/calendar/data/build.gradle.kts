@@ -40,6 +40,11 @@ sqldelight {
     databases {
         create("BookingDatabase") {
             packageName.set("com.vacation.feature.calendar.data.db")
+            // Note: verifyMigrations is intentionally left off. With the schema defined in the
+            // .sq files, SQLDelight's verifier replays .sqm migrations from an empty database
+            // (which would require the full schema to live in migrations). The migrations here
+            // are runtime upgrades applied by the platform drivers (Android/iOS auto, JVM via the
+            // schema-aware JdbcSqliteDriver), which is what is exercised on real devices.
         }
     }
 }

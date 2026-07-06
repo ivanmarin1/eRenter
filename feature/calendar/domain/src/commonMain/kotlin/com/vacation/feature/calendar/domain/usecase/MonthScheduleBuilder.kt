@@ -6,11 +6,7 @@ import com.vacation.feature.calendar.domain.model.BookingSummary
 import com.vacation.feature.calendar.domain.model.DaySchedule
 import com.vacation.feature.calendar.domain.model.MonthSchedule
 import com.vacation.feature.calendar.domain.model.YearMonth
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.daysUntil
-import kotlinx.datetime.isoDayNumber
-import kotlinx.datetime.plus
 
 /**
  * Pure function that turns raw bookings into a ready-to-render month grid.
@@ -28,15 +24,6 @@ class MonthScheduleBuilder(
         val arrivalsByDate = bookings.groupBy { it.checkIn }
         val departuresByDate = bookings.groupBy { it.checkOut }
 
-        val firstOfMonth = yearMonth.firstDay()
-        val firstOfNext = firstOfMonth.plus(1, DateTimeUnit.MONTH)
-        val daysInMonth = firstOfMonth.daysUntil(firstOfNext)
-
-        // How many trailing days of the previous month we render before day 1.
-        val leadOffset = (firstOfMonth.dayOfWeek.isoDayNumber - weekStart.isoDayNumber + 7) % 7
-        val gridStart = firstOfMonth.plus(-leadOffset, DateTimeUnit.DAY)
-        val totalCells = ((leadOffset + daysInMonth + 6) / 7) * 7 // round up to full weeks
-
         fun summarize(list: List<Booking>?): List<BookingSummary> =
             list.orEmpty()
                 .map { b ->
@@ -47,17 +34,21 @@ class MonthScheduleBuilder(
                         guestName = b.guestName,
                         checkIn = b.checkIn,
                         checkOut = b.checkOut,
+                        upfrontPayment = b.upfrontPayment,
+                        restPayment = b.restPayment,
+                        notes = b.notes,
+                        contactInfo = b.contactInfo,
+                        country = b.country,
                     )
                 }
                 .sortedBy { it.apartmentName }
 
-        val days = (0 until totalCells).map { offset ->
-            val date = gridStart.plus(offset, DateTimeUnit.DAY)
+        val days = monthGridDates(yearMonth, weekStart).map { gridDay ->
             DaySchedule(
-                date = date,
-                inVisibleMonth = date.month == yearMonth.month && date.year == yearMonth.year,
-                arrivals = summarize(arrivalsByDate[date]),
-                departures = summarize(departuresByDate[date]),
+                date = gridDay.date,
+                inVisibleMonth = gridDay.inVisibleMonth,
+                arrivals = summarize(arrivalsByDate[gridDay.date]),
+                departures = summarize(departuresByDate[gridDay.date]),
             )
         }
 

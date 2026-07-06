@@ -64,6 +64,11 @@ class SqlDelightBookingDataSource(
             guestName = booking.guestName,
             checkIn = booking.checkIn.toString(),
             checkOut = booking.checkOut.toString(),
+            upfrontPayment = booking.upfrontPayment,
+            restPayment = booking.restPayment,
+            notes = booking.notes,
+            contactInfo = booking.contactInfo,
+            country = booking.country,
         )
     }
 
@@ -82,4 +87,9 @@ private fun BookingEntity.toDomain(): Booking =
         guestName = guestName,
         checkIn = LocalDate.parse(checkIn),
         checkOut = LocalDate.parse(checkOut),
+        upfrontPayment = upfrontPayment,
+        restPayment = restPayment,
+        notes = notes,
+        contactInfo = contactInfo,
+        country = country,
     )
