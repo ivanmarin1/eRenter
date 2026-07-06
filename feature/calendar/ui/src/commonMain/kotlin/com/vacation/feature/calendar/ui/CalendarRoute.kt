@@ -19,9 +19,12 @@ fun CalendarRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val apartments by viewModel.apartments.collectAsStateWithLifecycle()
+    val conflictedBookingIds by viewModel.conflictedBookingIds.collectAsStateWithLifecycle()
     CalendarScreen(
         state = state,
         apartments = apartments,
+        conflictedBookingIds = conflictedBookingIds,
+        conflictsFor = viewModel::conflictsFor,
         onEvent = viewModel::onEvent,
         onAddBooking = viewModel::addBooking,
         onUpdateBooking = viewModel::updateBooking,

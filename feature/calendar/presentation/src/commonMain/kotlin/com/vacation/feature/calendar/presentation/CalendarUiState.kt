@@ -1,7 +1,6 @@
 package com.vacation.feature.calendar.presentation
 
 import com.vacation.feature.calendar.domain.model.DaySchedule
-import com.vacation.feature.calendar.domain.model.MonthSchedule
 import com.vacation.feature.calendar.domain.model.YearMonth
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.LocalDate
@@ -53,9 +52,9 @@ internal object CalendarLabels {
 
     fun monthLabel(ym: YearMonth): String = "${months[ym.month.number - 1]} ${ym.year}"
 
-    fun weekdayLabels(schedule: MonthSchedule): List<String> =
+    fun weekdayLabels(weekStart: kotlinx.datetime.DayOfWeek): List<String> =
         (0 until 7).map { offset ->
-            val dow = kotlinx.datetime.DayOfWeek(((schedule.weekStart.isoDayNumber - 1 + offset) % 7) + 1)
+            val dow = kotlinx.datetime.DayOfWeek(((weekStart.isoDayNumber - 1 + offset) % 7) + 1)
             weekdayShort.getValue(dow)
         }
 }

@@ -11,6 +11,11 @@ data class BookingSummary(
     val guestName: String,
     val checkIn: LocalDate,
     val checkOut: LocalDate,
+    val upfrontPayment: Double? = null,
+    val restPayment: Double? = null,
+    val notes: String = "",
+    val contactInfo: String = "",
+    val country: String = "",
 )
 
 /** Everything happening on a single day, already resolved (apartment names attached). */

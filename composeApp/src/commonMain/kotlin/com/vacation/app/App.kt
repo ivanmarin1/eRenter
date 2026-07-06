@@ -18,15 +18,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.vacation.core.designsystem.theme.VacationTheme
+import com.vacation.feature.calendar.ui.ApartmentCalendarRoute
 import com.vacation.feature.calendar.ui.CalendarRoute
 import com.vacation.feature.calendar.ui.ImportRoute
 import com.vacation.feature.calendar.ui.ManageApartmentsRoute
 
 private enum class Screen(val label: String) {
     Calendar("Calendar"),
+    Availability("Availability"),
     Apartments("Apartments"),
     Import("Import"),
 }
@@ -42,6 +46,7 @@ fun App() {
                 Box(Modifier.fillMaxSize().navigationBarsPadding()) {
                     when (screen) {
                         Screen.Calendar -> CalendarRoute()
+                        Screen.Availability -> ApartmentCalendarRoute()
                         Screen.Apartments -> ManageApartmentsRoute()
                         Screen.Import -> ImportRoute()
                     }
@@ -60,6 +65,8 @@ private fun NavBar(current: Screen, onSelect: (Screen) -> Unit) {
                 // Keep the buttons clear of the status bar when drawing edge-to-edge (Android).
                 // Zero on Desktop/iOS, so it is safe everywhere.
                 .statusBarsPadding()
+                // Scrolls if the tabs don't all fit on a narrow screen.
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {

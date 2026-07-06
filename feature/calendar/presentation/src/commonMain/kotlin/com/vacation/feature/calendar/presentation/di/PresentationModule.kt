@@ -1,8 +1,12 @@
 package com.vacation.feature.calendar.presentation.di
 
+import com.vacation.feature.calendar.domain.usecase.ApartmentAvailabilityBuilder
+import com.vacation.feature.calendar.domain.usecase.DetectOverbookingsUseCase
+import com.vacation.feature.calendar.domain.usecase.GetApartmentAvailabilityUseCase
 import com.vacation.feature.calendar.domain.usecase.GetMonthScheduleUseCase
 import com.vacation.feature.calendar.domain.usecase.MonthScheduleBuilder
 import com.vacation.feature.calendar.domain.usecase.ParseBookingImportUseCase
+import com.vacation.feature.calendar.presentation.ApartmentAvailabilityViewModel
 import com.vacation.feature.calendar.presentation.ApartmentsViewModel
 import com.vacation.feature.calendar.presentation.CalendarViewModel
 import com.vacation.feature.calendar.presentation.ImportViewModel
@@ -13,8 +17,11 @@ import org.koin.dsl.module
 
 val calendarPresentationModule = module {
     single { MonthScheduleBuilder() }
+    single { ApartmentAvailabilityBuilder() }
     factory { GetMonthScheduleUseCase(repository = get(), builder = get()) }
+    factory { GetApartmentAvailabilityUseCase(repository = get(), builder = get()) }
     factory { ParseBookingImportUseCase() }
+    factory { DetectOverbookingsUseCase() }
 
     // Provided explicitly because Koin's constructor DSL does not honour Kotlin default args.
     single<Clock> { Clock.System }
@@ -23,4 +30,5 @@ val calendarPresentationModule = module {
     viewModelOf(::CalendarViewModel)
     viewModelOf(::ApartmentsViewModel)
     viewModelOf(::ImportViewModel)
+    viewModelOf(::ApartmentAvailabilityViewModel)
 }

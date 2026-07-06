@@ -22,6 +22,13 @@ data class CalendarColors(
     val todayRing: Color,
     val outsideMonth: Color,
     val gridLine: Color,
+    // Per-apartment availability calendar: whole-day fills for free / booked / overbooked.
+    val available: Color,
+    val availableContainer: Color,
+    val booked: Color,
+    val bookedContainer: Color,
+    val overbooked: Color,
+    val overbookedContainer: Color,
 )
 
 fun lightCalendarColors(): CalendarColors = CalendarColors(
@@ -33,6 +40,12 @@ fun lightCalendarColors(): CalendarColors = CalendarColors(
     todayRing = Color(0xFF3D5AFE),
     outsideMonth = Color(0xFFB0B4BA),
     gridLine = Color(0xFFE6E8EC),
+    available = Color(0xFF1F7A4D),
+    availableContainer = Color(0xFFCDEFD9), // pale green – free to book
+    booked = Color(0xFF8C1D18),
+    bookedContainer = Color(0xFFF6D3D0),    // pale red – occupied
+    overbooked = Color(0xFFFFFFFF),
+    overbookedContainer = Color(0xFFCF2318), // strong red – overbooking conflict
 )
 
 fun darkCalendarColors(): CalendarColors = CalendarColors(
@@ -44,6 +57,12 @@ fun darkCalendarColors(): CalendarColors = CalendarColors(
     todayRing = Color(0xFF8C9EFF),
     outsideMonth = Color(0xFF5A5F66),
     gridLine = Color(0xFF2A2E33),
+    available = Color(0xFF7CCF9E),
+    availableContainer = Color(0xFF163A28), // deep green – free to book
+    booked = Color(0xFFF2B4AE),
+    bookedContainer = Color(0xFF541A15),    // deep red – occupied
+    overbooked = Color(0xFFFFFFFF),
+    overbookedContainer = Color(0xFFB0261C), // strong red – overbooking conflict
 )
 
 val LocalCalendarColors = staticCompositionLocalOf { lightCalendarColors() }

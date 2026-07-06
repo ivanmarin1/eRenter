@@ -1,11 +1,17 @@
 -- One reservation. Dates are stored as ISO text (yyyy-MM-dd) and mapped to LocalDate
--- in the data source, so no column adapters are needed.
+-- in the data source, so no column adapters are needed. Payments are nullable REAL
+-- (null = not recorded); the text detail columns default to '' so older rows migrate cleanly.
 CREATE TABLE bookingEntity (
     id TEXT NOT NULL PRIMARY KEY,
     apartmentId TEXT NOT NULL,
     guestName TEXT NOT NULL,
     checkIn TEXT NOT NULL,
-    checkOut TEXT NOT NULL
+    checkOut TEXT NOT NULL,
+    upfrontPayment REAL,
+    restPayment REAL,
+    notes TEXT NOT NULL DEFAULT '',
+    contactInfo TEXT NOT NULL DEFAULT '',
+    country TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX bookingEntity_apartment ON bookingEntity(apartmentId);
@@ -14,8 +20,8 @@ selectAll:
 SELECT * FROM bookingEntity;
 
 upsert:
-INSERT OR REPLACE INTO bookingEntity(id, apartmentId, guestName, checkIn, checkOut)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO bookingEntity(id, apartmentId, guestName, checkIn, checkOut, upfrontPayment, restPayment, notes, contactInfo, country)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteById:
 DELETE FROM bookingEntity WHERE id = ?;

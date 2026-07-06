@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vacation.core.designsystem.theme.VacationDesign
+import com.vacation.feature.calendar.domain.model.BookingId
 import com.vacation.feature.calendar.domain.model.BookingSummary
 import com.vacation.feature.calendar.domain.model.DaySchedule
 import kotlinx.datetime.number
@@ -32,6 +33,7 @@ import kotlinx.datetime.number
 fun DayDetails(
     day: DaySchedule,
     canAdd: Boolean,
+    conflictedBookingIds: Set<BookingId>,
     onAddReservation: () -> Unit,
     onEditBooking: (BookingSummary) -> Unit,
     onDeleteBooking: (BookingSummary) -> Unit,
@@ -80,10 +82,10 @@ fun DayDetails(
             }
 
             if (day.departures.isNotEmpty()) {
-                Section("Checking out", day.departures, colors.departure, onEditBooking, onDeleteBooking)
+                Section("Checking out", day.departures, colors.departure, conflictedBookingIds, onEditBooking, onDeleteBooking)
             }
             if (day.arrivals.isNotEmpty()) {
-                Section("Checking in", day.arrivals, colors.arrival, onEditBooking, onDeleteBooking)
+                Section("Checking in", day.arrivals, colors.arrival, conflictedBookingIds, onEditBooking, onDeleteBooking)
             }
         }
     }
@@ -94,16 +96,30 @@ private fun Section(
     title: String,
     items: List<BookingSummary>,
     accent: Color,
+    conflictedBookingIds: Set<BookingId>,
     onEdit: (BookingSummary) -> Unit,
     onDelete: (BookingSummary) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val colors = VacationDesign.calendarColors
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge, color = accent, fontWeight = FontWeight.Bold)
         items.forEach { s ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(s.apartmentName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     Text(s.guestName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (s.bookingId in conflictedBookingIds) {
+                        Text(
+                            "⚠ Overbooking — overlaps another reservation",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.overbookedContainer,
+                        )
+                    }
+                    DetailLine(s.contactInfo.takeIf { it.isNotBlank() })
+                    DetailLine(s.country.takeIf { it.isNotBlank() })
+                    DetailLine(paymentSummary(s.upfrontPayment, s.restPayment))
+                    DetailLine(s.notes.takeIf { it.isNotBlank() })
                 }
                 TextButton(onClick = { onEdit(s) }) { Text("Edit") }
                 TextButton(onClick = { onDelete(s) }) { Text("Delete") }
@@ -111,3 +127,22 @@ private fun Section(
         }
     }
 }
+
+@Composable
+private fun DetailLine(text: String?) {
+    if (text != null) {
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** "Paid 150 · Due 50", omitting either side that is unset; null when neither is set. */
+private fun paymentSummary(upfront: Double?, rest: Double?): String? {
+    val parts = buildList {
+        if (upfront != null) add("Paid ${formatAmount(upfront)}")
+        if (rest != null) add("Due ${formatAmount(rest)}")
+    }
+    return parts.joinToString(" · ").takeIf { it.isNotEmpty() }
+}
+
+private fun formatAmount(amount: Double): String =
+    if (amount == amount.toLong().toDouble()) amount.toLong().toString() else amount.toString()

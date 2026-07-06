@@ -3,13 +3,13 @@ package com.vacation.feature.calendar.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -22,9 +22,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.vacation.feature.calendar.domain.model.Apartment
-import com.vacation.feature.calendar.domain.model.ApartmentId
+import com.vacation.feature.calendar.domain.model.BookingSummary
+import com.vacation.feature.calendar.presentation.BookingDraft
+import com.vacation.feature.calendar.ui.component.ApartmentDropdown
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -35,38 +38,66 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 /**
- * Add/edit form for a single reservation: pick the apartment, type the guest, and choose
- * check-in / check-out with the Material date picker. Used for both create and edit — the
- * caller supplies the initial values and the confirm-button label.
+ * Add/edit form for a single reservation. Collects apartment, guest, contact info, country,
+ * dates (Material date picker) and optional payments/notes, and emits a [BookingDraft]. Used
+ * for both create and edit — the caller supplies the [initial] draft and confirm-button label.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingDialog(
     title: String,
     apartments: List<Apartment>,
-    initialApartmentId: ApartmentId?,
-    initialGuestName: String,
-    initialCheckIn: LocalDate,
-    initialCheckOut: LocalDate,
+    initial: BookingDraft,
     confirmLabel: String,
-    onConfirm: (ApartmentId, String, LocalDate, LocalDate) -> Unit,
+    conflictsFor: (BookingDraft) -> List<BookingSummary>,
+    onConfirm: (BookingDraft) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var apartmentId by remember {
-        mutableStateOf(initialApartmentId ?: apartments.firstOrNull()?.id)
+        mutableStateOf(
+            apartments.firstOrNull { it.id == initial.apartmentId }?.id
+                ?: apartments.firstOrNull()?.id,
+        )
     }
-    var guest by remember { mutableStateOf(initialGuestName) }
-    var checkIn by remember { mutableStateOf(initialCheckIn) }
-    var checkOut by remember { mutableStateOf(initialCheckOut) }
+    var guest by remember { mutableStateOf(initial.guestName) }
+    var contact by remember { mutableStateOf(initial.contactInfo) }
+    var country by remember { mutableStateOf(initial.country) }
+    var checkIn by remember { mutableStateOf(initial.checkIn) }
+    var checkOut by remember { mutableStateOf(initial.checkOut) }
+    var upfrontText by remember { mutableStateOf(initial.upfrontPayment.toAmountText()) }
+    var restText by remember { mutableStateOf(initial.restPayment.toAmountText()) }
+    var notes by remember { mutableStateOf(initial.notes) }
 
     val datesValid = checkOut > checkIn
-    val canSave = apartmentId != null && guest.isNotBlank() && datesValid
+    val upfrontValid = upfrontText.isBlankAmount() || upfrontText.toAmountOrNull() != null
+    val restValid = restText.isBlankAmount() || restText.toAmountOrNull() != null
+
+    val currentDraft = apartmentId?.let { id ->
+        BookingDraft(
+            apartmentId = id,
+            guestName = guest,
+            contactInfo = contact,
+            country = country,
+            checkIn = checkIn,
+            checkOut = checkOut,
+            upfrontPayment = upfrontText.toAmountOrNull(),
+            restPayment = restText.toAmountOrNull(),
+            notes = notes,
+        )
+    }
+    // Hard block: an overlapping reservation for the same apartment cannot be saved.
+    val conflicts = if (currentDraft != null && datesValid) conflictsFor(currentDraft) else emptyList()
+    val canSave = currentDraft != null && guest.isNotBlank() &&
+        datesValid && upfrontValid && restValid && conflicts.isEmpty()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 ApartmentDropdown(
                     apartments = apartments,
                     selectedId = apartmentId,
@@ -79,28 +110,64 @@ fun BookingDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                OutlinedTextField(
+                    value = contact,
+                    onValueChange = { contact = it },
+                    label = { Text("Contact info (phone / email)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = country,
+                    onValueChange = { country = it },
+                    label = { Text("Country") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 DateField(
                     label = "Check-in",
                     date = checkIn,
                     onPick = { picked ->
                         checkIn = picked
-                        // Keep the range valid: nudge check-out to the day after if needed.
                         if (checkOut <= picked) checkOut = picked.plus(1, DateTimeUnit.DAY)
                     },
                 )
                 DateField(label = "Check-out", date = checkOut, onPick = { checkOut = it })
                 if (!datesValid) {
-                    Text(
-                        "Check-out must be after check-in.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
+                    ErrorText("Check-out must be after check-in.")
+                }
+                if (conflicts.isNotEmpty()) {
+                    ErrorText(
+                        "Overbooking — these dates overlap:\n" +
+                            conflicts.joinToString("\n") { c ->
+                                "• ${c.guestName} (${formatDate(c.checkIn)} → ${formatDate(c.checkOut)})"
+                            },
                     )
                 }
+                AmountField(
+                    label = "Upfront payment",
+                    text = upfrontText,
+                    onChange = { upfrontText = it },
+                    isError = !upfrontValid,
+                )
+                AmountField(
+                    label = "Rest of payment",
+                    text = restText,
+                    onChange = { restText = it },
+                    isError = !restValid,
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { apartmentId?.let { onConfirm(it, guest, checkIn, checkOut) } },
+                onClick = { currentDraft?.let(onConfirm) },
                 enabled = canSave,
             ) { Text(confirmLabel) }
         },
@@ -108,34 +175,18 @@ fun BookingDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ApartmentDropdown(
-    apartments: List<Apartment>,
-    selectedId: ApartmentId?,
-    onSelect: (ApartmentId) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedName = apartments.firstOrNull { it.id == selectedId }?.name ?: ""
-
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selectedName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Apartment") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            apartments.forEach { apt ->
-                DropdownMenuItem(
-                    text = { Text(apt.name) },
-                    onClick = { onSelect(apt.id); expanded = false },
-                )
-            }
-        }
-    }
+private fun AmountField(label: String, text: String, onChange: (String) -> Unit, isError: Boolean) {
+    OutlinedTextField(
+        value = text,
+        onValueChange = onChange,
+        label = { Text(label) },
+        singleLine = true,
+        isError = isError,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        supportingText = if (isError) ({ Text("Enter a number, e.g. 150.00") }) else null,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -164,8 +215,26 @@ private fun DateField(label: String, date: LocalDate, onPick: (LocalDate) -> Uni
     }
 }
 
+@Composable
+private fun ErrorText(message: String) {
+    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+}
+
 private fun formatDate(date: LocalDate): String =
     "${date.dayOfMonth}.${date.month.number}.${date.year}."
+
+private fun String.isBlankAmount(): Boolean = trim().isEmpty()
+
+/** Parses "" -> null, otherwise a decimal (accepting a comma as the decimal separator). */
+private fun String.toAmountOrNull(): Double? =
+    trim().takeIf { it.isNotEmpty() }?.replace(',', '.')?.toDoubleOrNull()
+
+/** Formats a stored amount back into an editable string, dropping a trailing ".0". */
+private fun Double?.toAmountText(): String = when {
+    this == null -> ""
+    this == toLong().toDouble() -> toLong().toString()
+    else -> toString()
+}
 
 private fun LocalDate.toUtcMillis(): Long =
     atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()

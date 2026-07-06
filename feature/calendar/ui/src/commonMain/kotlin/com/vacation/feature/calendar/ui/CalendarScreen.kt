@@ -21,19 +21,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.vacation.feature.calendar.domain.model.Apartment
-import com.vacation.feature.calendar.domain.model.ApartmentId
 import com.vacation.feature.calendar.domain.model.BookingId
 import com.vacation.feature.calendar.domain.model.BookingSummary
 import com.vacation.feature.calendar.domain.model.DaySchedule
+import com.vacation.feature.calendar.presentation.BookingDraft
 import com.vacation.feature.calendar.presentation.CalendarEvent
 import com.vacation.feature.calendar.presentation.CalendarUiState
 import com.vacation.feature.calendar.ui.component.DayCell
 import com.vacation.feature.calendar.ui.component.DayDetails
 import com.vacation.feature.calendar.ui.component.Legend
 import com.vacation.feature.calendar.ui.component.MonthHeader
+import com.vacation.feature.calendar.ui.component.WeekdayRow
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -53,9 +53,11 @@ private sealed interface BookingEditor {
 fun CalendarScreen(
     state: CalendarUiState,
     apartments: List<Apartment>,
+    conflictedBookingIds: Set<BookingId>,
+    conflictsFor: (BookingDraft, BookingId?) -> List<BookingSummary>,
     onEvent: (CalendarEvent) -> Unit,
-    onAddBooking: (ApartmentId, String, LocalDate, LocalDate) -> Unit,
-    onUpdateBooking: (BookingId, ApartmentId, String, LocalDate, LocalDate) -> Unit,
+    onAddBooking: (BookingDraft) -> Unit,
+    onUpdateBooking: (BookingId, BookingDraft) -> Unit,
     onDeleteBooking: (BookingId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -113,6 +115,7 @@ fun CalendarScreen(
             DayDetails(
                 day = day,
                 canAdd = apartments.isNotEmpty(),
+                conflictedBookingIds = conflictedBookingIds,
                 onAddReservation = { editor = BookingEditor.Add(day.date) },
                 onEditBooking = { editor = BookingEditor.Edit(it) },
                 onDeleteBooking = { deleteTarget = it },
@@ -122,34 +125,47 @@ fun CalendarScreen(
     }
 
     when (val current = editor) {
-        is BookingEditor.Add -> BookingDialog(
-            title = "Add reservation",
-            apartments = apartments,
-            initialApartmentId = null,
-            initialGuestName = "",
-            initialCheckIn = current.date,
-            initialCheckOut = current.date.plus(1, DateTimeUnit.DAY),
-            confirmLabel = "Add",
-            onConfirm = { apartmentId, guest, checkIn, checkOut ->
-                onAddBooking(apartmentId, guest, checkIn, checkOut)
-                editor = null
-            },
-            onDismiss = { editor = null },
-        )
+        is BookingEditor.Add -> {
+            val firstApartment = apartments.first()
+            BookingDialog(
+                title = "Add reservation",
+                apartments = apartments,
+                initial = BookingDraft(
+                    apartmentId = firstApartment.id,
+                    guestName = "",
+                    contactInfo = "",
+                    country = "",
+                    checkIn = current.date,
+                    checkOut = current.date.plus(1, DateTimeUnit.DAY),
+                    upfrontPayment = null,
+                    restPayment = null,
+                    notes = "",
+                ),
+                confirmLabel = "Add",
+                conflictsFor = { draft -> conflictsFor(draft, null) },
+                onConfirm = { draft -> onAddBooking(draft); editor = null },
+                onDismiss = { editor = null },
+            )
+        }
         is BookingEditor.Edit -> {
             val s = current.summary
             BookingDialog(
                 title = "Edit reservation",
                 apartments = apartments,
-                initialApartmentId = s.apartmentId,
-                initialGuestName = s.guestName,
-                initialCheckIn = s.checkIn,
-                initialCheckOut = s.checkOut,
+                initial = BookingDraft(
+                    apartmentId = s.apartmentId,
+                    guestName = s.guestName,
+                    contactInfo = s.contactInfo,
+                    country = s.country,
+                    checkIn = s.checkIn,
+                    checkOut = s.checkOut,
+                    upfrontPayment = s.upfrontPayment,
+                    restPayment = s.restPayment,
+                    notes = s.notes,
+                ),
                 confirmLabel = "Save",
-                onConfirm = { apartmentId, guest, checkIn, checkOut ->
-                    onUpdateBooking(s.bookingId, apartmentId, guest, checkIn, checkOut)
-                    editor = null
-                },
+                conflictsFor = { draft -> conflictsFor(draft, s.bookingId) },
+                onConfirm = { draft -> onUpdateBooking(s.bookingId, draft); editor = null },
                 onDismiss = { editor = null },
             )
         }
@@ -164,20 +180,5 @@ fun CalendarScreen(
             onConfirm = { onDeleteBooking(target.bookingId); deleteTarget = null },
             onDismiss = { deleteTarget = null },
         )
-    }
-}
-
-@Composable
-private fun WeekdayRow(labels: List<String>) {
-    Row(Modifier.fillMaxWidth()) {
-        labels.forEach { label ->
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
-            )
-        }
     }
 }
