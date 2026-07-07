@@ -8,7 +8,11 @@ import com.vacation.feature.calendar.data.db.DatabaseDriverFactory
 fun main() {
     initKoin(DatabaseDriverFactory())
     application {
-        Window(onCloseRequest = ::exitApplication, title = "Booking Calendar") {
+        Window(
+            onCloseRequest = ::exitApplication,
+            title = "eRenter",
+            icon = AppIconPainter(),
+        ) {
             App()
         }
     }

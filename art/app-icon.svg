@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    eRenter app icon master (1024×1024, full-bleed for iOS masking).
+    The "split turnover day": one enlarged calendar day cell split along the diagonal into a
+    departure (amber) and arrival (sage) half, with the plum turnover dot.
+    For iOS: export this to a 1024pt PNG (no alpha) and drop into Assets.xcassets/AppIcon.
+  -->
+  <rect width="1024" height="1024" fill="#3D6E8C"/>
+  <clipPath id="cell">
+    <rect x="282" y="282" width="460" height="460" rx="92"/>
+  </clipPath>
+  <rect x="282" y="282" width="460" height="460" rx="92" fill="#FFFFFF"/>
+  <g clip-path="url(#cell)">
+    <polygon points="282,282 742,282 282,742" fill="#CB8A2C"/>
+    <polygon points="742,282 742,742 282,742" fill="#5E7D42"/>
+    <line x1="742" y1="282" x2="282" y2="742" stroke="#FFFFFF" stroke-width="34" stroke-linecap="round"/>
+  </g>
+  <circle cx="613" cy="613" r="51" fill="#FFFFFF"/>
+  <circle cx="613" cy="613" r="36" fill="#8A5A7A"/>
+</svg>
