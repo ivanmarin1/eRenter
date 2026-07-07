@@ -49,6 +49,7 @@ import com.vacation.feature.calendar.ui.component.MiniMonthPalette
 import com.vacation.feature.calendar.ui.component.MonthHeader
 import com.vacation.feature.calendar.ui.component.SegmentedControl
 import com.vacation.feature.calendar.ui.component.WeekdayRow
+import com.vacation.feature.calendar.ui.component.swipeToChangePeriod
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
@@ -102,6 +103,7 @@ fun ApartmentCalendarScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .swipeToChangePeriod(onPrevious = onPrevious, onNext = onNext)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
