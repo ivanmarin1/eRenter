@@ -6,13 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,10 +34,15 @@ import com.vacation.feature.calendar.domain.model.DaySchedule
 import com.vacation.feature.calendar.presentation.BookingDraft
 import com.vacation.feature.calendar.presentation.CalendarEvent
 import com.vacation.feature.calendar.presentation.CalendarUiState
+import com.vacation.feature.calendar.presentation.CalendarViewMode
+import com.vacation.feature.calendar.ui.component.AddReservationFab
 import com.vacation.feature.calendar.ui.component.DayCell
 import com.vacation.feature.calendar.ui.component.DayDetails
 import com.vacation.feature.calendar.ui.component.Legend
+import com.vacation.feature.calendar.ui.component.MiniMonthGrid
+import com.vacation.feature.calendar.ui.component.MiniMonthPalette
 import com.vacation.feature.calendar.ui.component.MonthHeader
+import com.vacation.feature.calendar.ui.component.SegmentedControl
 import com.vacation.feature.calendar.ui.component.WeekdayRow
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -65,18 +75,21 @@ fun CalendarScreen(
     var editor by remember { mutableStateOf<BookingEditor?>(null) }
     var deleteTarget by remember { mutableStateOf<BookingSummary?>(null) }
 
+    Box(modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        val isYear = state.viewMode == CalendarViewMode.Year
         MonthHeader(
-            monthLabel = state.monthLabel,
+            monthLabel = if (isYear) state.yearLabel else state.monthLabel,
             onPrevious = { onEvent(CalendarEvent.PreviousMonth) },
             onNext = { onEvent(CalendarEvent.NextMonth) },
             onToday = { onEvent(CalendarEvent.GoToToday) },
+            eyebrow = "Calendar",
         )
 
         if (state.isLoading) {
@@ -86,10 +99,51 @@ fun CalendarScreen(
             return@Column
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { isExpanded = !isExpanded }) {
-                Text(if (isExpanded) "Shrink calendar ▲" else "Expand calendar ▼")
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SegmentedControl(
+                options = listOf("Month", "Year"),
+                selectedIndex = if (isYear) 1 else 0,
+                onSelect = { index ->
+                    onEvent(CalendarEvent.SetViewMode(if (index == 1) CalendarViewMode.Year else CalendarViewMode.Month))
+                },
+            )
+            if (!isYear) {
+                val active = isExpanded
+                Surface(
+                    onClick = { isExpanded = !isExpanded },
+                    shape = RoundedCornerShape(11.dp),
+                    color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        text = "Detail",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
             }
+        }
+
+        if (isYear) {
+            state.miniMonths.chunked(2).forEach { rowMonths ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    rowMonths.forEach { mini ->
+                        MiniMonthGrid(
+                            label = mini.label,
+                            cells = mini.cells,
+                            palette = MiniMonthPalette.Schedule,
+                            onClick = { onEvent(CalendarEvent.OpenMonth(mini.yearMonth)) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (rowMonths.size == 1) Box(Modifier.weight(1f))
+                }
+            }
+            return@Column
         }
 
         WeekdayRow(labels = state.weekdayLabels)
@@ -110,18 +164,27 @@ fun CalendarScreen(
         }
 
         Legend(Modifier.padding(top = 4.dp))
+    }
 
-        state.selectedDay?.let { day: DaySchedule ->
-            DayDetails(
-                day = day,
-                canAdd = apartments.isNotEmpty(),
-                conflictedBookingIds = conflictedBookingIds,
-                onAddReservation = { editor = BookingEditor.Add(day.date) },
-                onEditBooking = { editor = BookingEditor.Edit(it) },
-                onDeleteBooking = { deleteTarget = it },
-                modifier = Modifier.padding(top = 4.dp),
+        if (!state.isLoading && apartments.isNotEmpty()) {
+            AddReservationFab(
+                onClick = { state.today?.let { editor = BookingEditor.Add(state.selectedDay?.date ?: it) } },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
             )
         }
+    }
+
+    // Tapping a day slides up its detail as a bottom sheet.
+    state.selectedDay?.let { day: DaySchedule ->
+        DayDetailSheet(
+            day = day,
+            canAdd = apartments.isNotEmpty(),
+            conflictedBookingIds = conflictedBookingIds,
+            onAddReservation = { editor = BookingEditor.Add(day.date); onEvent(CalendarEvent.ClearSelection) },
+            onEditBooking = { editor = BookingEditor.Edit(it); onEvent(CalendarEvent.ClearSelection) },
+            onDeleteBooking = { deleteTarget = it; onEvent(CalendarEvent.ClearSelection) },
+            onDismiss = { onEvent(CalendarEvent.ClearSelection) },
+        )
     }
 
     when (val current = editor) {
@@ -180,5 +243,35 @@ fun CalendarScreen(
             onConfirm = { onDeleteBooking(target.bookingId); deleteTarget = null },
             onDismiss = { deleteTarget = null },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayDetailSheet(
+    day: DaySchedule,
+    canAdd: Boolean,
+    conflictedBookingIds: Set<BookingId>,
+    onAddReservation: () -> Unit,
+    onEditBooking: (BookingSummary) -> Unit,
+    onDeleteBooking: (BookingSummary) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 12.dp)) {
+            DayDetails(
+                day = day,
+                canAdd = canAdd,
+                conflictedBookingIds = conflictedBookingIds,
+                onAddReservation = onAddReservation,
+                onEditBooking = onEditBooking,
+                onDeleteBooking = onDeleteBooking,
+            )
+        }
     }
 }

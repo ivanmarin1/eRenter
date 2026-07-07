@@ -11,7 +11,10 @@ data class AvailabilityConflict(
     val checkOut: LocalDate,
 )
 
-/** Immutable snapshot the per-apartment availability screen renders. */
+/** Look at one apartment across time, or one month across all apartments. */
+enum class AvailabilityScope { PerApartment, PerMonth }
+
+/** Immutable snapshot the availability screen renders. */
 data class ApartmentAvailabilityUiState(
     val hasApartments: Boolean,
     val apartmentId: ApartmentId?,
@@ -20,10 +23,16 @@ data class ApartmentAvailabilityUiState(
     val weekdayLabels: List<String>,
     val weeks: List<List<DayAvailability>>,
     val conflicts: List<AvailabilityConflict>,
+    val today: LocalDate,
     val isLoading: Boolean,
+    val scope: AvailabilityScope = AvailabilityScope.PerApartment,
+    val viewMode: CalendarViewMode = CalendarViewMode.Month,
+    val yearLabel: String = "",
+    /** Year overview (per-apartment year view) or matrix (per-month) — labelled accordingly. */
+    val overview: List<MiniMonthUi> = emptyList(),
 ) {
     companion object {
-        fun empty(monthLabel: String, hasApartments: Boolean, isLoading: Boolean): ApartmentAvailabilityUiState =
+        fun empty(monthLabel: String, today: LocalDate, hasApartments: Boolean, isLoading: Boolean): ApartmentAvailabilityUiState =
             ApartmentAvailabilityUiState(
                 hasApartments = hasApartments,
                 apartmentId = null,
@@ -32,6 +41,7 @@ data class ApartmentAvailabilityUiState(
                 weekdayLabels = emptyList(),
                 weeks = emptyList(),
                 conflicts = emptyList(),
+                today = today,
                 isLoading = isLoading,
             )
     }

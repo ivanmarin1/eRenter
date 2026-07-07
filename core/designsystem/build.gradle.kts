@@ -20,6 +20,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            implementation(compose.components.resources)
         }
     }
 }
@@ -30,4 +31,10 @@ android {
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
     }
+}
+
+// Bundled fonts (Nunito) are exposed through a generated `Res` class in this package.
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "com.vacation.core.designsystem.generated.resources"
 }

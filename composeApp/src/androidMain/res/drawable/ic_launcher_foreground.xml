@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!--
+      The eRenter "split turnover day": one enlarged calendar day cell, split along the
+      top-right→bottom-left diagonal into a departure (amber) and arrival (sage) half, with the
+      plum turnover dot. Kept inside the adaptive-icon safe zone (centred ~44dp cell).
+    -->
+    <!-- white base so the rounded corners stay clean -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M41,32 L67,32 A9,9 0 0 1 76,41 L76,67 A9,9 0 0 1 67,76 L41,76 A9,9 0 0 1 32,67 L32,41 A9,9 0 0 1 41,32 Z" />
+    <group>
+        <clip-path android:pathData="M41,32 L67,32 A9,9 0 0 1 76,41 L76,67 A9,9 0 0 1 67,76 L41,76 A9,9 0 0 1 32,67 L32,41 A9,9 0 0 1 41,32 Z" />
+        <!-- departure (upper-left) -->
+        <path android:fillColor="#CB8A2C" android:pathData="M32,32 L76,32 L32,76 Z" />
+        <!-- arrival (lower-right) -->
+        <path android:fillColor="#5E7D42" android:pathData="M76,32 L76,76 L32,76 Z" />
+        <!-- the diagonal split -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="3.2"
+            android:strokeLineCap="round"
+            android:pathData="M76,32 L32,76" />
+        <!-- turnover dot -->
+        <path android:fillColor="#FFFFFF" android:pathData="M59.4,64 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0 Z" />
+        <path android:fillColor="#8A5A7A" android:pathData="M60.8,64 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0 Z" />
+    </group>
+</vector>

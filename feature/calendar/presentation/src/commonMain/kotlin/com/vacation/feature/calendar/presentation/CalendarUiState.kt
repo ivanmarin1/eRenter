@@ -1,10 +1,21 @@
 package com.vacation.feature.calendar.presentation
 
 import com.vacation.feature.calendar.domain.model.DaySchedule
+import com.vacation.feature.calendar.domain.model.MiniMonthCell
 import com.vacation.feature.calendar.domain.model.YearMonth
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
+
+/** Month grid vs. 12-month year overview. */
+enum class CalendarViewMode { Month, Year }
+
+/** A compact month in the year overview, with a pre-formatted short label (e.g. "Jul"). */
+data class MiniMonthUi(
+    val yearMonth: YearMonth,
+    val label: String,
+    val cells: List<MiniMonthCell>,
+)
 
 /**
  * Immutable snapshot the UI renders. It is pure data — any UI toolkit (Compose today,
@@ -19,6 +30,9 @@ data class CalendarUiState(
     val today: LocalDate?,
     val selectedDay: DaySchedule?,
     val isLoading: Boolean,
+    val viewMode: CalendarViewMode = CalendarViewMode.Month,
+    val yearLabel: String = yearMonth.year.toString(),
+    val miniMonths: List<MiniMonthUi> = emptyList(),
 ) {
     companion object {
         fun loading(yearMonth: YearMonth, monthLabel: String): CalendarUiState =
@@ -50,7 +64,13 @@ internal object CalendarLabels {
         kotlinx.datetime.DayOfWeek.SUNDAY to "Sun",
     )
 
+    private val monthsShort = listOf(
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    )
+
     fun monthLabel(ym: YearMonth): String = "${months[ym.month.number - 1]} ${ym.year}"
+
+    fun shortMonthLabel(ym: YearMonth): String = monthsShort[ym.month.number - 1]
 
     fun weekdayLabels(weekStart: kotlinx.datetime.DayOfWeek): List<String> =
         (0 until 7).map { offset ->

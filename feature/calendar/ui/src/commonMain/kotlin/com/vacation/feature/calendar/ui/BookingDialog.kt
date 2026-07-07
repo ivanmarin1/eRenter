@@ -1,27 +1,39 @@
 package com.vacation.feature.calendar.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.vacation.feature.calendar.domain.model.Apartment
@@ -38,9 +50,10 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 /**
- * Add/edit form for a single reservation. Collects apartment, guest, contact info, country,
- * dates (Material date picker) and optional payments/notes, and emits a [BookingDraft]. Used
- * for both create and edit — the caller supplies the [initial] draft and confirm-button label.
+ * Add/edit form for a single reservation, presented as a slide-up bottom sheet (the eRenter design).
+ * Collects apartment, guest, contact info, country, dates (Material date picker) and optional
+ * payments/notes, and emits a [BookingDraft]. Used for both create and edit — the caller supplies
+ * the [initial] draft and confirm-button label.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,12 +103,19 @@ fun BookingDialog(
     val canSave = currentDraft != null && guest.isNotBlank() &&
         datesValid && upfrontValid && restValid && conflicts.isEmpty()
 
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding()) {
+            SheetHeader(title = title, onClose = onDismiss)
+
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .heightIn(max = 440.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ApartmentDropdown(
@@ -164,15 +184,63 @@ fun BookingDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { currentDraft?.let(onConfirm) },
+
+            Spacer(Modifier.size(14.dp))
+            SheetPrimaryButton(
+                label = confirmLabel,
                 enabled = canSave,
-            ) { Text(confirmLabel) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+                onClick = { currentDraft?.let(onConfirm) },
+            )
+            Spacer(Modifier.size(20.dp))
+        }
+    }
+}
+
+/** Shared sheet title row with a round close button. */
+@Composable
+internal fun SheetHeader(title: String, onClose: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        androidx.compose.material3.Surface(
+            onClick = onClose,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                Text("✕", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+}
+
+/** Shared full-width primary action for sheets. */
+@Composable
+internal fun SheetPrimaryButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.Surface(
+        onClick = { if (enabled) onClick() },
+        enabled = enabled,
+        shape = RoundedCornerShape(15.dp),
+        color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 15.dp), contentAlignment = Alignment.Center) {
+            Text(
+                label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                color = if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable

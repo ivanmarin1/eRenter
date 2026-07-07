@@ -4,7 +4,9 @@
     <application
         android:name=".BookingApplication"
         android:allowBackup="true"
-        android:label="Booking Calendar"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="eRenter"
         android:supportsRtl="true"
         android:theme="@style/Theme.BookingCalendar">
         <activity

@@ -6,11 +6,13 @@ import com.vacation.feature.calendar.domain.model.Apartment
 import com.vacation.feature.calendar.domain.model.Booking
 import com.vacation.feature.calendar.domain.model.BookingId
 import com.vacation.feature.calendar.domain.model.BookingSummary
+import com.vacation.feature.calendar.domain.model.MiniMonth
 import com.vacation.feature.calendar.domain.model.MonthSchedule
 import com.vacation.feature.calendar.domain.model.YearMonth
 import com.vacation.feature.calendar.domain.repository.BookingRepository
 import com.vacation.feature.calendar.domain.usecase.DetectOverbookingsUseCase
 import com.vacation.feature.calendar.domain.usecase.GetMonthScheduleUseCase
+import com.vacation.feature.calendar.domain.usecase.MiniMonthBuilder
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +38,7 @@ class CalendarViewModel(
     private val getMonthSchedule: GetMonthScheduleUseCase,
     private val repository: BookingRepository,
     private val detectOverbookings: DetectOverbookingsUseCase,
+    private val miniMonthBuilder: MiniMonthBuilder,
     private val clock: Clock = Clock.System,
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel() {
@@ -44,6 +47,7 @@ class CalendarViewModel(
 
     private val visibleMonth = MutableStateFlow(YearMonth.of(today))
     private val selectedDate = MutableStateFlow<LocalDate?>(null)
+    private val viewMode = MutableStateFlow(CalendarViewMode.Month)
 
     /** Apartments to choose from when adding or editing a reservation. */
     val apartments: StateFlow<List<Apartment>> =
@@ -65,8 +69,10 @@ class CalendarViewModel(
         combine(
             visibleMonth.flatMapLatest { month -> getMonthSchedule(month) },
             selectedDate,
-        ) { schedule, selected ->
-            schedule.toUiState(selected)
+            viewMode,
+            bookings,
+        ) { schedule, selected, mode, books ->
+            schedule.toUiState(selected, mode, books)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -79,21 +85,28 @@ class CalendarViewModel(
     fun onEvent(event: CalendarEvent) {
         when (event) {
             CalendarEvent.PreviousMonth -> {
-                visibleMonth.update { it.previous() }
+                visibleMonth.update { if (viewMode.value == CalendarViewMode.Year) YearMonth(it.year - 1, it.month) else it.previous() }
                 selectedDate.value = null
             }
             CalendarEvent.NextMonth -> {
-                visibleMonth.update { it.next() }
+                visibleMonth.update { if (viewMode.value == CalendarViewMode.Year) YearMonth(it.year + 1, it.month) else it.next() }
                 selectedDate.value = null
             }
             CalendarEvent.GoToToday -> {
                 visibleMonth.value = YearMonth.of(today)
                 selectedDate.value = today
+                viewMode.value = CalendarViewMode.Month
             }
             is CalendarEvent.SelectDay -> {
                 selectedDate.update { current -> if (current == event.date) null else event.date }
             }
             CalendarEvent.ClearSelection -> selectedDate.value = null
+            is CalendarEvent.SetViewMode -> viewMode.value = event.mode
+            is CalendarEvent.OpenMonth -> {
+                visibleMonth.value = event.yearMonth
+                viewMode.value = CalendarViewMode.Month
+                selectedDate.value = null
+            }
         }
     }
 
@@ -101,27 +114,8 @@ class CalendarViewModel(
      * Existing reservations that would clash with [draft] for the same apartment. Empty when the
      * draft is safe to save. [editingId] excludes the booking being edited from clashing with itself.
      */
-    fun conflictsFor(draft: BookingDraft, editingId: BookingId?): List<BookingSummary> {
-        if (draft.checkOut <= draft.checkIn) return emptyList()
-        val candidate = Booking(
-            id = editingId ?: CANDIDATE_ID,
-            apartmentId = draft.apartmentId,
-            guestName = draft.guestName,
-            checkIn = draft.checkIn,
-            checkOut = draft.checkOut,
-        )
-        val names = apartments.value.associate { it.id to it.name }
-        return detectOverbookings.conflictsFor(candidate, bookings.value).map { b ->
-            BookingSummary(
-                bookingId = b.id,
-                apartmentId = b.apartmentId,
-                apartmentName = names[b.apartmentId] ?: "",
-                guestName = b.guestName,
-                checkIn = b.checkIn,
-                checkOut = b.checkOut,
-            )
-        }
-    }
+    fun conflictsFor(draft: BookingDraft, editingId: BookingId?): List<BookingSummary> =
+        detectOverbookings.conflictSummaries(draft, editingId, bookings.value, apartments.value)
 
     /** Create a new reservation. Silently ignores invalid input (blank guest / bad date range). */
     fun addBooking(draft: BookingDraft) = saveBooking(BookingId(newId()), draft)
@@ -134,32 +128,15 @@ class CalendarViewModel(
     }
 
     private fun saveBooking(bookingId: BookingId, draft: BookingDraft) {
-        val name = draft.guestName.trim()
-        if (name.isEmpty() || draft.checkOut < draft.checkIn) return
-        viewModelScope.launch {
-            repository.upsertBooking(
-                Booking(
-                    id = bookingId,
-                    apartmentId = draft.apartmentId,
-                    guestName = name,
-                    checkIn = draft.checkIn,
-                    checkOut = draft.checkOut,
-                    upfrontPayment = draft.upfrontPayment,
-                    restPayment = draft.restPayment,
-                    notes = draft.notes.trim(),
-                    contactInfo = draft.contactInfo.trim(),
-                    country = draft.country.trim(),
-                ),
-            )
-        }
+        if (draft.guestName.isBlank() || draft.checkOut < draft.checkIn) return
+        viewModelScope.launch { repository.upsertBooking(draft.toBooking(bookingId)) }
     }
 
-    private companion object {
-        // Placeholder id for the draft when adding (not yet persisted) so it never matches a real row.
-        val CANDIDATE_ID = BookingId("__candidate__")
-    }
-
-    private fun MonthSchedule.toUiState(selected: LocalDate?): CalendarUiState =
+    private fun MonthSchedule.toUiState(
+        selected: LocalDate?,
+        mode: CalendarViewMode,
+        books: List<Booking>,
+    ): CalendarUiState =
         CalendarUiState(
             yearMonth = yearMonth,
             monthLabel = CalendarLabels.monthLabel(yearMonth),
@@ -168,5 +145,15 @@ class CalendarViewModel(
             today = today,
             selectedDay = selected?.let { day(it) },
             isLoading = false,
+            viewMode = mode,
+            yearLabel = yearMonth.year.toString(),
+            miniMonths = if (mode == CalendarViewMode.Year) {
+                miniMonthBuilder.scheduleYear(yearMonth.year, books, today).map { it.toUi() }
+            } else {
+                emptyList()
+            },
         )
+
+    private fun MiniMonth.toUi(): MiniMonthUi =
+        MiniMonthUi(yearMonth = yearMonth, label = CalendarLabels.shortMonthLabel(yearMonth), cells = cells)
 }
