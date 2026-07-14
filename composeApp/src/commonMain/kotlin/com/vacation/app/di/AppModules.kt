@@ -3,8 +3,8 @@ package com.vacation.app.di
 import com.vacation.feature.calendar.data.db.DatabaseDriverFactory
 import com.vacation.feature.calendar.data.di.calendarDataModule
 import com.vacation.feature.calendar.presentation.di.calendarPresentationModule
-import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
+import org.koin.mp.KoinPlatform
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.module
 
@@ -24,7 +24,7 @@ fun initKoin(
     driverFactory: DatabaseDriverFactory,
     appDeclaration: KoinAppDeclaration = {},
 ) {
-    if (GlobalContext.getOrNull() == null) {
+    if (KoinPlatform.getKoinOrNull() == null) {
         startKoin {
             appDeclaration()
             modules(appModules + module { single { driverFactory } })
